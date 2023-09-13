@@ -94,6 +94,8 @@ class PMMLTransformerTest extends FunSuite {
 			.build()
 
 		// Verify the transformed results
+		println(pmmlTransformer.params.mkString("Array(", ", ", ")"))
+		inputDs.show()
 		var resultDs = pmmlTransformer.transform(inputDs)
 		resultDs.show
 

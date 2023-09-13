@@ -35,7 +35,7 @@ import org.apache.spark.sql.types.{DataTypes, StructType}
 import org.apache.spark.sql.{Column, Dataset, Row}
 import org.jpmml.evaluator.{Evaluator, InputField, ResultField}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 // Use a Java list for the ColumnProducers to make the constructor API easy to use from Java
 // We'll just convert to Scala where needed internally
