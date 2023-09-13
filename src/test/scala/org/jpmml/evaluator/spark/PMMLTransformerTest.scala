@@ -28,12 +28,12 @@
 package org.jpmml.evaluator.spark
 
 import java.util.Arrays
-
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib.linalg.{Vector, Vectors}
 import org.apache.spark.sql.SparkSession
 import org.jpmml.evaluator.LoadingModelEvaluatorBuilder
-import org.scalatest.FunSuite
+import org.scalatest.flatspec.AnyFlatSpec
+import scala.Seq
 
 // Helper object for case class for Spark
 object IrisHelper {
@@ -42,10 +42,11 @@ object IrisHelper {
 	case class CustomResultRecord(label: String, probabilities: Vector)
 }
 
-class PMMLTransformerTest extends FunSuite {
+class PMMLTransformerTest extends AnyFlatSpec {
 	import IrisHelper._
 
-	test("Transformer works as expected") {
+
+	it should "Transformer works as expected" in {
 		implicit val sparkSession = SparkSession
 			.builder()
 			.config(
@@ -57,11 +58,12 @@ class PMMLTransformerTest extends FunSuite {
 		// See https://github.com/jpmml/jpmml-evaluator-spark/issues/43
 		sparkSession.sql("set spark.sql.legacy.allowUntypedScalaUDF=true")
 
-		val inputRdd = sparkSession.sparkContext.makeRDD(Seq(
+		val seq: Seq[InputRecord] = Seq(
 			InputRecord(5.1, 3.5, 1.4, 0.2),
 			InputRecord(7, 3.2, 4.7, 1.4),
 			InputRecord(6.3, 3.3, 6, 2.5)
-		))
+		)
+		val inputRdd = sparkSession.sparkContext.parallelize(seq)
 		val inputDs = sparkSession.createDataFrame(inputRdd)
 
 		val expectedDefaultResultRdd = sparkSession.sparkContext.makeRDD(Seq(
@@ -71,20 +73,27 @@ class PMMLTransformerTest extends FunSuite {
 		))
 		val expectedDefaultResultDs = sparkSession.createDataFrame(expectedDefaultResultRdd)
 
+		println("before using Vectors")
+
 		val expectedCustomResultRdd = sparkSession.sparkContext.makeRDD(Seq(
 			CustomResultRecord("setosa", Vectors.dense(1.0, 0.0, 0.0)),
 			CustomResultRecord("versicolor", Vectors.dense(0.0, 0.9074074074074074, 0.09259259259259259)),
 			CustomResultRecord("virginica", Vectors.dense(0.0, 0.021739130434782608, 0.9782608695652174))
 		))
 		val expectedCustomResultDs = sparkSession.createDataFrame(expectedCustomResultRdd)
+		println("after using Vectors")
+
 
 		// Load the PMML
 		val pmmlIs = getClass.getClassLoader.getResourceAsStream("DecisionTreeIris.pmml")
+		println("after getResourceAsStream")
 
 		// Create the evaluator
 		val evaluator = new LoadingModelEvaluatorBuilder()
 			.load(pmmlIs)
 			.build()
+		println("after evaluator")
+
 
 		// Create the transformer
 		var pmmlTransformer = new TransformerBuilder(evaluator)
@@ -92,9 +101,13 @@ class PMMLTransformerTest extends FunSuite {
 			.withOutputCols
 			.exploded(true)
 			.build()
+		println("after pmmlTransformer")
+
 
 		// Verify the transformed results
 		var resultDs = pmmlTransformer.transform(inputDs)
+		println("after resultDs")
+
 		resultDs.show
 
 		resultDs = resultDs.select("Species", "Probability_setosa", "Probability_versicolor", "Probability_virginica", "Node_Id")

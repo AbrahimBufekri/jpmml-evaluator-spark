@@ -35,7 +35,8 @@ import org.apache.spark.sql.types.{DataTypes, StructType}
 import org.apache.spark.sql.{Column, Dataset, Row}
 import org.jpmml.evaluator.{Evaluator, InputField, ResultField}
 
-import scala.collection.JavaConverters._
+import scala.collection.immutable.ArraySeq.unsafeWrapArray
+import scala.jdk.CollectionConverters._
 
 // Use a Java list for the ColumnProducers to make the constructor API easy to use from Java
 // We'll just convert to Scala where needed internally
@@ -78,9 +79,9 @@ class PMMLTransformer(evaluator: Evaluator, columnProducers: java.util.List[Colu
 				val resultMap = evaluator.evaluate(arguments.toMap.asJava).asScala
 
 				// Format the values from the map
-				val formattedValues = columnProducers.asScala.map{ cp =>
-					cp.format( resultMap(cp.getField.getName) )
-				}
+				val formattedValues = columnProducers.asScala.map { cp =>
+					cp.format(resultMap(cp.getField.getName))
+				}.toSeq
 
 				// Create a Row from the formatted values
 				Row.fromSeq(formattedValues)
@@ -92,14 +93,14 @@ class PMMLTransformer(evaluator: Evaluator, columnProducers: java.util.List[Colu
 			ds(
 				DatasetUtil.escapeColumnName(inputField.getName)
 			)
-		}
+		}.toSeq
 
 		// Create a UDF to perform the evaluation
 		import org.apache.spark.sql.functions._
-		val udfFn = udf(evaluationFunction, outputSchema)
+		val udfFn = udf(evaluationFunction)
 
 		// Wrap the columns in a struct() so the function executes on a Row
-		val udfCol = udfFn(struct(columns:_*))
+		val udfCol = udfFn(struct(unsafeWrapArray[Column](columns.toArray):_*))
 
 		// Execute the PMML by including the evaluation as a new column (getOutputCol)
 		ds.withColumn(
